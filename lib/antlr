@@ -1,0 +1,5 @@
+#!/bin/bash
+dir=$(dirname $0)
+JAR=$(ls $dir/antlr*.jar)
+
+java -jar $JAR $*
