@@ -1,1 +1,7 @@
-(31 + (12 * (90 + 91)));
+print (31 + (12 * (90 + 91)));
+print 1 + 2;
+print 3 + 4;
+let x = 100;
+print 2 * x;
+let x = x + 1;
+print x;

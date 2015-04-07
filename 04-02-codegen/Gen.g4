@@ -63,10 +63,6 @@ echo(".limit locals 100");
 echo("");
 
 for(String i : this.block) echo(i);
-
-echo("getstatic java/lang/System/out Ljava/io/PrintStream;");
-echo("ldc \"Hello World\"");
-echo("invokevirtual java/io/PrintStream/println(Ljava/lang/String;)V");
 echo("return");
 echo(".end method");
         }
@@ -94,9 +90,8 @@ echo(".end method");
 }
 
 
-prog : 
-    expr ';' { $expr.code.gen(); }
-    <EOF>;
+prog : s=stmtList {$s.code.gen();}
+    ;
 
 expr returns [Code code]
 @init { $code = new Code(); }
@@ -162,6 +157,46 @@ factor returns [Code code]
         }
     ;
     
+stmtList returns [Code code]
+@init {$code = new Code();}
+    : (s=stmt {$code.extend($s.code.block);}) +
+    ;
+
+stmt returns [Code code]
+    : printStmt ';' { $code = $printStmt.code; }
+    | assignStmt ';' { $code = $assignStmt.code; }
+    ;
+
+printStmt returns [Code code]
+@init { $code = new Code(); }
+    : 'print' expr
+            { $code.extend($expr.code.block);
+              $code.append(
+                "getstatic java/lang/System/out Ljava/io/PrintStream;",
+                iload($expr.code.addr),
+                "invokevirtual java/io/PrintStream/println(I)V");
+            }
+    ;
+
+assignStmt returns [Code code]
+@init {$code = new Code();}
+    : 'let' ID '=' expr
+        { int varAddr;
+          String varName = $ID.text;
+          if(symbolTable.containsKey(varName))
+            varAddr = symbolTable.get(varName);
+          else {
+            varAddr = gen_address();
+            symbolTable.put(varName, varAddr);
+          }
+
+          $code.extend($expr.code.block);
+          $code.append(
+            iload($expr.code.addr),
+            istore(varAddr));
+        }
+    ;
+
 NUM : ('0' .. '9') + ;
 ID : ('a' .. 'z') +;
 WS : (' ' | '\t' | '\n' | '\r')+ { skip(); };
