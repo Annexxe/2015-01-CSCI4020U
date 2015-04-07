@@ -9,6 +9,10 @@ grammar Gen;
     static int gen_address() {
         return (addr_index ++);
     }
+    static int label_index = 0;
+    static int gen_label() {
+        return (label_index ++);
+    }
 
     // a class for bytecode instructions
     static String iload(int addr) {
@@ -17,14 +21,22 @@ grammar Gen;
     static String istore(int addr) {
         return "istore " + addr;
     }
-    static String iadd() {
-        return "iadd";
-    }
+    static String iadd() { return "iadd"; }
+    static String isub() { return "isub"; }
     static String imul() {
         return "imul";
     }
     static String ldc(int x) {
         return "ldc " + x;
+    }
+    static String iflt(int l) { return "iflt LABEL_" + l; }
+    static String ifeq(int l) { return "ifeq LABEL_" + l; }
+    static String go(int l) {
+        return "goto LABEL_" + l;
+    }
+
+    static String label(int l) {
+        return "LABEL_" + l + ":";
     }
 
     static HashMap<String, Integer> symbolTable 
@@ -165,6 +177,7 @@ stmtList returns [Code code]
 stmt returns [Code code]
     : printStmt ';' { $code = $printStmt.code; }
     | assignStmt ';' { $code = $assignStmt.code; }
+    | whileStmt {$code = $whileStmt.code;}
     ;
 
 printStmt returns [Code code]
@@ -194,6 +207,52 @@ assignStmt returns [Code code]
           $code.append(
             iload($expr.code.addr),
             istore(varAddr));
+        }
+    ;
+
+whileStmt returns [Code code]
+@init {$code = new Code();}
+    : 'while' '(' c=cond ')' '{'
+        s=stmtList
+       '}'
+       {
+            int beginLabel = gen_label();
+            int endLabel = gen_label();
+
+            $code.append(label(beginLabel));
+            $code.extend($c.code.block);
+            $code.append(
+                iload($c.code.addr),
+                ifeq(endLabel));
+            $code.extend($s.code.block);
+            $code.append(go(beginLabel));
+            $code.append(label(endLabel));
+       }
+    ;
+
+cond returns [Code code]
+@init {$code = new Code();}
+    : e1=expr '<' e2=expr 
+        { 
+          int addr = gen_address();
+          int trueLabel = gen_label();
+          int endLabel = gen_label();
+
+          $code.extend($e1.code.block);
+          $code.extend($e2.code.block);
+          $code.append(
+            iload($e1.code.addr),
+            iload($e2.code.addr),
+            isub(),
+            iflt(trueLabel),
+            ldc(0),
+            istore(addr),
+            go(endLabel),
+            label(trueLabel),
+            ldc(1),
+            istore(addr),
+            label(endLabel));
+          $code.addr = addr;
         }
     ;
 
